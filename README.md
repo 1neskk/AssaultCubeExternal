@@ -1,5 +1,5 @@
 # AssaultCube External
-This is a simple external cheat for the open source game AssaultCube. It is written in C++ and uses the Windows API for memory reading and writing. The cheatas been tested on the latest version of AssaultCube.
+This is a simple external cheat for the open source game AssaultCube. It is written in C++ and uses the Windows API for memory reading and writing. The cheat has been tested on the latest version of AssaultCube (1.3.0.2).
 
 This project was created in order to learn more about game hacking and reverse engineering. It is meant to be used for educational purposes only.
 
