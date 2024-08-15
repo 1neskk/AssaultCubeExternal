@@ -6,6 +6,15 @@ This project was created in order to learn more about game hacking and reverse e
 ### Disclaimer
 This project is for educational purposes only. I do not condone cheating in any form.
 
+## Table of Contents
+- [Showcase](#showcase)
+- [Features](#features)
+- [Dependencies](#dependencies)
+- [Get Started (Windows Only)](#get-started-windows-only)
+- [Usage](#usage)
+- [License](#license)
+- [Contributing](#contributing)
+
 ## Showcase
 ![image](https://github.com/user-attachments/assets/0c5da17a-5036-49f3-b32f-39bff8a3b039)
 ![Screenshot 2024-08-14 154952](https://github.com/user-attachments/assets/16be2c84-46ef-46f1-80cd-d981906631a1)
