@@ -39,7 +39,7 @@ git clone --recursive git@github.com:1neskk/AssaultCubeExternal.git
 ```
 2. Run the script `setup.bat` to build the project
 3. Open the solution file inside the `build` directory
-4. Set the subsystem to Windows and build the solution
+4. Set the start up project to `ACExternal` and build the solution
 5. Run the resulting executable
 
 ## Usage
