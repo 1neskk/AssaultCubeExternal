@@ -25,6 +25,7 @@ This project is for educational purposes only. I do not condone cheating in any 
 - Infinite Health
 - Infinite Ammo
 - Rapid Fire
+- No Recoil (1.2.0.2 only)
 - Stream Proof
 
 ## Dependencies

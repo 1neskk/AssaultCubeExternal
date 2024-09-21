@@ -6,30 +6,28 @@
 class ACExternal final : public Layer
 {
 public:
-    virtual void OnUpdate(const float ts) override
+	void OnUpdate(const float ts) override
     {
 		if (m_renderer.IsAttached())
 		{
-            m_renderer.InfiniteHealth();
-			m_renderer.InfiniteAmmo();
-			m_renderer.RapidFire();
+			m_renderer.OnUpdate();
+		}
+
+		if (GetAsyncKeyState(VK_END) & 1)
+		{
+			Application::Close();
 		}
 
 		if (GetAsyncKeyState(VK_INSERT) & 1)
 		{
-			Drawing draw;
-			if (draw.IsActive())
-			{
-				draw.SetActive(false);
-			}
+			if (Drawing::IsActive())
+				Drawing::SetActive(false);
 			else
-			{
-				draw.SetActive(true);
-			}
+				Drawing::SetActive(true);
 		}
     }
 
-    virtual void OnImGuiRender() override
+	void OnImGuiRender() override
     {
 		char fpsBuffer[16] = { 0 };
 		std::snprintf(fpsBuffer, sizeof(fpsBuffer), "FPS: %.2f", ImGui::GetIO().Framerate);
@@ -42,14 +40,12 @@ public:
 
 		if (Drawing::IsActive())
 		{
-			ImGuiWindowFlags windowFlagsMenu;
-			ImGuiWindowFlags windowFlagsLoader;
-			windowFlagsMenu = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize;
-			windowFlagsLoader = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize;
+			ImGuiWindowFlags windowFlagsMenu = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize;
+			ImGuiWindowFlags windowFlagsLoader = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize;
 
 			Style::Theme();
 
-			ImGui::SetNextWindowSize(ImVec2(400, 200), ImGuiCond_Once);
+			ImGui::SetNextWindowSize(ImVec2(400, 250), ImGuiCond_Once);
 			ImGui::SetNextWindowBgAlpha(0.80f);
 			if (m_renderer.IsAttached())
 			{
@@ -63,7 +59,11 @@ public:
 				ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 10);
 				ImGui::Checkbox("Team ESP", &m_renderer.m_bTeamEsp);
 
-				ImGui::SetCursorPos(ImVec2(10, 160));
+				ImGui::Spacing();
+				ImGui::Spacing();
+				ImGui::Checkbox("No Recoil", &m_renderer.m_bNoRecoil);
+
+				ImGui::SetCursorPos(ImVec2(10, 190));
 				if (ImGui::Button("Detach"))
 				{
 					m_renderer.Detach();
@@ -87,7 +87,7 @@ public:
 			}
 		}
 
-		if (m_renderer.ToggleEsp())
+		if (m_renderer.IsAttached() && m_renderer.ToggleEsp())
 			m_renderer.RenderEsp();
     }
 

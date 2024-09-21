@@ -1,6 +1,6 @@
-#include "Utils.h"
+#include "Memory.h"
 
-DWORD Utils::GetProcessId(const WCHAR* processName)
+DWORD Memory::GetProcessId(const WCHAR* processName)
 {
 	PROCESSENTRY32W entry;
 	entry.dwSize = sizeof(PROCESSENTRY32W);
@@ -28,7 +28,7 @@ DWORD Utils::GetProcessId(const WCHAR* processName)
 	return pid;
 }
 
-DWORD Utils::GetModuleAddress(DWORD dwPid, const WCHAR* moduleName)
+DWORD Memory::GetModuleAddress(DWORD dwPid, const WCHAR* moduleName)
 {
 	MODULEENTRY32W entry;
 	entry.dwSize = sizeof(MODULEENTRY32W);
@@ -55,3 +55,20 @@ DWORD Utils::GetModuleAddress(DWORD dwPid, const WCHAR* moduleName)
 	CloseHandle(snapshot);
 	return baseAddress;
 }
+
+void Memory::PatchEx(BYTE* dst, const BYTE* src, const uint32_t size, const HANDLE hProcess)
+{
+	DWORD oldProtect;
+	VirtualProtectEx(hProcess, dst, size, PAGE_EXECUTE_READWRITE, &oldProtect);
+	WriteProcessMemory(hProcess, dst, src, size, nullptr);
+	VirtualProtectEx(hProcess, dst, size, oldProtect, &oldProtect);
+}
+
+void Memory::NopEx(BYTE* dst, uint32_t size, HANDLE hProcess)
+{
+	BYTE* nopArray = new BYTE[size];
+	memset(nopArray, 0x90, size);
+	PatchEx(dst, nopArray, size, hProcess);
+	delete[] nopArray;
+}
+

@@ -26,3 +26,5 @@ set(IMGUI_SRC
 add_library(imgui STATIC ${IMGUI_SRC})
 target_link_libraries(${PROJECT_NAME} imgui)
 target_link_libraries(${PROJECT_NAME} d3d11)
+
+set_property(TARGET ${PROJECT_NAME} PROPERTY WIN32_EXECUTABLE TRUE)

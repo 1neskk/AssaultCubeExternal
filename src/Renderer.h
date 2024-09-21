@@ -6,7 +6,7 @@
 #include <glm/glm.hpp>
 
 #include "Offsets.h"
-#include "Utils.h"
+#include "Memory.h"
 
 class Renderer
 {
@@ -18,9 +18,12 @@ public:
     void Detach() { this->~Renderer(); }
     bool IsAttached() const;
 
+    void OnUpdate();
+
     void InfiniteHealth();
     void InfiniteAmmo();
     void RapidFire();
+    void NoRecoil() const;
 
     static bool WorldToScreen(const glm::vec3& pos, glm::vec3& screen, const glm::mat4& viewMatrix);
 
@@ -35,6 +38,7 @@ public:
 public:
     bool m_bEsp = false;
     bool m_bTeamEsp = false;
+    bool m_bNoRecoil = false;
 
 private:
     DWORD m_dwProcessId = 0;

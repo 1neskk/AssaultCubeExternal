@@ -11,26 +11,59 @@ Renderer::~Renderer()
 	m_dwBaseAddress = 0;
 	m_localPlayer = 0;
 	m_entityList = 0;
+
+	FreeConsole();
 }
 
 auto Renderer::Attach(const WCHAR* processName) -> void
 {
-	m_dwProcessId = Utils::GetProcessId(processName);
-    m_dwBaseAddress = Utils::GetModuleAddress(m_dwProcessId, processName);
+#ifdef _DEBUG
+	AllocConsole();
+	freopen_s(reinterpret_cast<FILE**>(stdout), "CONOUT$", "w", stdout);
+	freopen_s(reinterpret_cast<FILE**>(stderr), "CONOUT$", "w", stderr);
+#endif
+
+	m_dwProcessId = Memory::GetProcessId(processName);
+    m_dwBaseAddress = Memory::GetModuleAddress(m_dwProcessId, processName);
 	m_hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, m_dwProcessId);
 
-	m_localPlayer = Utils::ReadMemory<uintptr_t>(m_hProcess, m_dwBaseAddress + Offsets::player_base);
-	m_entityList = Utils::ReadMemory<uintptr_t>(m_hProcess, m_dwBaseAddress + Offsets::entity_list);
+	m_localPlayer = Memory::ReadMemory<uintptr_t>(m_hProcess, m_dwBaseAddress + Offsets::player_base);
+	m_entityList = Memory::ReadMemory<uintptr_t>(m_hProcess, m_dwBaseAddress + Offsets::entity_list);
 	if (!m_localPlayer || !m_entityList)
 	{
-		MessageBoxA(nullptr, "Failed to attach to the game process!", "Error", MB_ICONERROR);
+		std::cerr << "Failed to get either local player or entity list\n";
 		Detach();
 	}
+
+	if (IsAttached())
+	{
+		std::cout << "[+] Attached to process with PID: " << m_dwProcessId << "\n";
+		std::cout << "[+] Base address: 0x" << std::format("{:X}", m_dwBaseAddress) << "\n";
+	}
+	else
+		std::cerr << "[-] Failed to attach to process\n";
 }
 
 bool Renderer::IsAttached() const
 {
 	return m_dwProcessId && m_dwBaseAddress && m_hProcess;
+}
+
+void Renderer::OnUpdate()
+{
+	if (GetAsyncKeyState(VK_END) & 1)
+		Detach();
+
+	if (!m_localPlayer)
+	{
+		std::cerr << "[-] LocalPlayer is invalid\n";
+		return;
+	}
+
+	InfiniteHealth();
+	InfiniteAmmo();
+	RapidFire();
+	NoRecoil();
 }
 
 bool Renderer::WorldToScreen(const glm::vec3& pos, glm::vec3& screen, const glm::mat4& viewMatrix)
@@ -51,50 +84,62 @@ bool Renderer::WorldToScreen(const glm::vec3& pos, glm::vec3& screen, const glm:
 
 void Renderer::InfiniteHealth()
 {
-    m_oldHealth = Utils::ReadMemory<int>(m_hProcess, m_localPlayer + Offsets::health);
-    if (m_localPlayer && m_oldHealth != m_newHealth)
+    m_oldHealth = Memory::ReadMemory<int>(m_hProcess, m_localPlayer + Offsets::health);
+    if (m_oldHealth != m_newHealth)
     {
-        Utils::WriteMemory<int>(m_hProcess, m_localPlayer + Offsets::health, m_newHealth);
+        Memory::WriteMemory<int>(m_hProcess, m_localPlayer + Offsets::health, m_newHealth);
     }
 }
 
 void Renderer::InfiniteAmmo()
 {
-    if (m_localPlayer && m_oldAmmo != m_newAmmo)
+	m_oldAmmo = Memory::ReadMemory<int>(m_hProcess, m_localPlayer + Offsets::rifle_ammo);
+    if (m_oldAmmo != m_newAmmo)
     {
-        Utils::WriteMemory<int>(m_hProcess, m_localPlayer + Offsets::rifle_ammo, m_newAmmo);
+        Memory::WriteMemory<int>(m_hProcess, m_localPlayer + Offsets::rifle_ammo, m_newAmmo);
     }
 }
 
 void Renderer::RapidFire()
 {
-    m_oldCooldown = Utils::ReadMemory<float>(m_hProcess, m_localPlayer + Offsets::rifle_cooldown);
-    if (m_localPlayer && m_oldCooldown != m_newCooldown)
+    m_oldCooldown = Memory::ReadMemory<float>(m_hProcess, m_localPlayer + Offsets::rifle_cooldown);
+    if (m_oldCooldown != m_newCooldown)
     {
-        Utils::WriteMemory<float>(m_hProcess, m_localPlayer + Offsets::rifle_cooldown, m_newCooldown);
+        Memory::WriteMemory<float>(m_hProcess, m_localPlayer + Offsets::rifle_cooldown, m_newCooldown);
     }
+}
+
+// Only works on version 1.2.0.2 for now
+void Renderer::NoRecoil() const
+{
+	if constexpr (Offsets::recoil == 0)
+		return;
+
+	if (m_bNoRecoil)
+		Memory::NopEx(reinterpret_cast<BYTE*>(m_dwBaseAddress + Offsets::recoil), 10, m_hProcess);
+	else
+		Memory::PatchEx(reinterpret_cast<BYTE*>(m_dwBaseAddress + Offsets::recoil), reinterpret_cast<const BYTE*>("\x50\x8D\x4C\x24\x1C\x51\x8B\xCE\xFF\xD2"),
+			10, m_hProcess);
 }
 
 void Renderer::RenderEsp()
 {
-	m_viewMatrix = Utils::ReadMemory<glm::mat4>(m_hProcess, Offsets::view_matrix);
+	m_viewMatrix = Memory::ReadMemory<glm::mat4>(m_hProcess, Offsets::view_matrix);
 
 	for (int i = 0; i < 64; i++)
 	{
-		const auto entity = Utils::ReadMemory<uintptr_t>(m_hProcess, m_entityList + i * 0x4);
+		const auto entity = Memory::ReadMemory<uintptr_t>(m_hProcess, m_entityList + i * 0x4);
 		if (!entity)
 			continue;
 
 		char nameBuffer[16] = { 0 };
-		ReadProcessMemory(m_hProcess, reinterpret_cast<LPCVOID>(entity + Offsets::name), &nameBuffer,
-			sizeof(nameBuffer), nullptr);
-
+		Memory::ReadString(m_hProcess, entity + Offsets::name, nameBuffer);
 		const auto entityName = std::make_unique<std::string>(nameBuffer);
 
 		if (!m_bTeamEsp)
 		{
-			const auto entityTeam = Utils::ReadMemory<int>(m_hProcess, entity + Offsets::team);
-			const auto localTeam = Utils::ReadMemory<int>(m_hProcess, m_localPlayer + Offsets::team);
+			const auto entityTeam = Memory::ReadMemory<int>(m_hProcess, entity + Offsets::team);
+			const auto localTeam = Memory::ReadMemory<int>(m_hProcess, m_localPlayer + Offsets::team);
 			if (entityTeam == localTeam || entity == m_localPlayer)
 				continue;
 		}
@@ -104,17 +149,19 @@ void Renderer::RenderEsp()
 				continue;
 		}
 
-		const auto entityHealth = Utils::ReadMemory<int>(m_hProcess, entity + Offsets::health);
-		if (entityHealth <= 0)
+		const auto entityHealth = Memory::ReadMemory<int>(m_hProcess, entity + Offsets::health);
+		if (entityHealth <= 0 || entityHealth > 100)
 			continue;
 
+		std::cout << "Entity[" << i << "] " << entityName->data() << " Health: " << entityHealth << "\n";
+
 		const auto entityHead = glm::vec3(
-			Utils::ReadMemory<float>(m_hProcess, entity + Offsets::head_posx),
-			Utils::ReadMemory<float>(m_hProcess, entity + Offsets::head_posy),
-			Utils::ReadMemory<float>(m_hProcess, entity + Offsets::head_posz)
+			Memory::ReadMemory<float>(m_hProcess, entity + Offsets::head_posx),
+			Memory::ReadMemory<float>(m_hProcess, entity + Offsets::head_posy),
+			Memory::ReadMemory<float>(m_hProcess, entity + Offsets::head_posz)
 		);
 
-		const auto entityFoot = Utils::ReadMemory<glm::vec3>(m_hProcess, entity + Offsets::feet_posx);
+		const auto entityFoot = Memory::ReadMemory<glm::vec3>(m_hProcess, entity + Offsets::feet_posx);
 
 		glm::vec3 top, bottom;
 		if (WorldToScreen(entityHead, top, m_viewMatrix) && WorldToScreen(entityFoot, bottom, m_viewMatrix))
@@ -133,9 +180,8 @@ void Renderer::RenderEsp()
 			ImGui::GetBackgroundDrawList()->AddRectFilled(ImVec2(top.x - width / 2 - 5, top.y + height * (1 - health)),
 				ImVec2(top.x - width / 2 - 4, bottom.y), color);
 
-			ImGui::PushFont(nullptr);
 			ImGui::GetBackgroundDrawList()->AddText(ImVec2(top.x - width / 2, bottom.y), IM_COL32(255, 255, 255, 255),
-				entityName->data());
+				entityName->c_str());
 		}
 	}
 }
